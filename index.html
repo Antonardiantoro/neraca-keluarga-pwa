@@ -4,80 +4,338 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Neraca Keuangan Keluarga & Kedai</title>
-  <meta name="theme-color" content="#1b6b48" />
+  <meta name="theme-color" content="#0f5132" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Neraca Keluarga" />
   <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23198754'/%3E%3Cstop offset='100%25' stop-color='%230b3d26'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M16 42V28h6v14h-6zm13 0V20h6v22h-6zm13 0V14h6v28h-6z' fill='%23ffffff'/%3E%3Ccircle cx='45' cy='14' r='4' fill='%23f59e0b'/%3E%3C/svg%3E" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #f4f6f5; --card: #ffffff; --text: #1b2420; --muted: #5c6b64;
-      --primary: #1b6b48; --primary-hover: #145237; --danger: #b42318; --border: #dce3df;
+      --bg: #f0f4f2;
+      --card: #ffffff;
+      --text: #13221b;
+      --muted: #5a6d64;
+      --primary: #146c43;
+      --primary-dark: #0d4b2e;
+      --primary-soft: #e7f4ee;
+      --accent: #d97706;
+      --danger: #b42318;
+      --danger-soft: #fef2f2;
+      --border: #dce5e0;
+      --shadow: 0 6px 20px rgba(15, 45, 30, 0.06);
+      --shadow-hover: 0 10px 26px rgba(15, 45, 30, 0.11);
     }
+
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at top right, #e3efe9 0%, var(--bg) 45%);
+      color: var(--text);
+      padding: 16px;
+      min-height: 100vh;
+    }
+
     .hidden { display: none !important; }
-    .container { max-width: 1120px; margin: 0 auto; }
-    .login-wrapper { min-height: 85vh; display: flex; align-items: center; justify-content: center; }
-    .login-card { width: 100%; max-width: 390px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
-    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
-    h1 { font-size: 1.3rem; margin: 0; }
-    .subtitle { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
-    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--card); padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); }
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
-    .kpi-label { font-size: 0.8rem; color: var(--muted); }
-    .kpi-value { font-size: 1.18rem; font-weight: 700; margin-top: 6px; }
+    .container { max-width: 1160px; margin: 0 auto; }
+
+    /* Logo Component */
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #198754 0%, #0b3d26 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(20, 108, 67, 0.28);
+      flex-shrink: 0;
+    }
+    .brand-logo svg { width: 26px; height: 26px; }
+
+    /* Login Screen */
+    .login-wrapper {
+      min-height: 88vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 410px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Header & Toolbar */
+    header {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    h1 { font-size: 1.25rem; margin: 0; letter-spacing: -0.01em; }
+    .subtitle { color: var(--muted); font-size: 0.84rem; margin-top: 2px; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Navigation Pills */
+    .nav-pills {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 16px;
+    }
+    .pill-btn {
+      width: auto;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .pill-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .pill-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 3px 10px rgba(20, 108, 67, 0.25);
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+    .kpi::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--primary);
+    }
+    .kpi.kpi-danger::before { background: var(--danger); }
+    .kpi.kpi-accent::before { background: var(--accent); }
+    .kpi.kpi-dark {
+      background: linear-gradient(135deg, #146c43 0%, #0b3d26 100%);
+      color: #fff;
+      border: none;
+    }
+    .kpi.kpi-dark::before { display: none; }
+    .kpi.kpi-dark .kpi-label { color: rgba(255, 255, 255, 0.8); }
+
+    .kpi-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .kpi-value { font-size: 1.28rem; font-weight: 700; margin-top: 8px; }
     .text-masuk { color: var(--primary); }
     .text-keluar { color: var(--danger); }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px; }
-    .card h2 { font-size: 1.05rem; margin: 0 0 14px 0; }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; }
-    .field { margin-bottom: 12px; }
-    label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
-    input, select, button { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.92rem; background: #fff; color: var(--text); }
-    button.btn-primary { background: var(--primary); color: #fff; border: none; font-weight: 600; cursor: pointer; }
-    button.btn-primary:hover { background: var(--primary-hover); }
-    button.btn-outline { width: auto; cursor: pointer; padding: 7px 12px; font-size: 0.84rem; }
-    button.btn-del { background: transparent; color: var(--danger); border: 1px solid #f0c4c0; padding: 4px 8px; font-size: 0.78rem; cursor: pointer; width: auto; }
-    .msg { margin-top: 10px; font-size: 0.86rem; min-height: 20px; }
-    .table-wrap { overflow-x: auto; }
+
+    /* Cards & Forms */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+      animation: fadeUp 0.25s ease;
+    }
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 1.05rem; margin: 0; display: flex; align-items: center; gap: 8px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 12px;
+    }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+
+    input, select, button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.92rem;
+      background: #fff;
+      color: var(--text);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(20, 108, 67, 0.14);
+    }
+
+    button.btn-primary {
+      background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(20, 108, 67, 0.22);
+    }
+    button.btn-primary:hover { background: var(--primary-dark); }
+
+    button.btn-outline {
+      width: auto;
+      cursor: pointer;
+      padding: 8px 13px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      background: #f8faf9;
+    }
+    button.btn-outline:hover { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+
+    button.btn-del {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid #f5c2c0;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: auto;
+      border-radius: 8px;
+    }
+    button.btn-del:hover { background: var(--danger); color: #fff; }
+
+    .msg { margin-top: 10px; font-size: 0.86rem; font-weight: 500; min-height: 20px; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .badge-masuk { background: var(--primary-soft); color: var(--primary); }
+    .badge-keluar { background: var(--danger-soft); color: var(--danger); }
+    .badge-modal { background: #fef3c7; color: #b45309; }
+    .badge-awal { background: #e0f2fe; color: #0369a1; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
     table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-    th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
-    th { background: #eef3f0; font-weight: 600; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    th { background: #eef4f1; font-weight: 700; color: #243b30; }
+    tbody tr:hover { background: #f8fbf9; }
     td.num, th.num { text-align: right; }
-    tr.total-row td { font-weight: 700; background: #f7faf8; border-top: 2px solid var(--border); }
-    .chart-box { position: relative; width: 100%; height: 280px; }
+    tr.total-row td {
+      font-weight: 700;
+      background: #eaf3ee;
+      border-top: 2px solid #c5d6cd;
+    }
+    .chart-box { position: relative; width: 100%; height: 290px; }
   </style>
 </head>
 <body>
+  <!-- HALAMAN LOGIN -->
   <div id="loginView" class="login-wrapper">
     <div class="login-card">
-      <h1 style="margin-bottom:4px;">Masuk ke Neraca</h1>
-      <div class="subtitle" style="margin-bottom:18px;">Akses privat data keuangan keluarga &amp; kedai</div>
+      <div class="brand-box" style="margin-bottom:18px;">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="12" width="3.5" height="8" rx="1" fill="#ffffff"/>
+            <rect x="10.25" y="8" width="3.5" height="12" rx="1" fill="#ffffff"/>
+            <rect x="17.5" y="4" width="3.5" height="16" rx="1" fill="#ffffff"/>
+            <circle cx="19.25" cy="2.5" r="1.8" fill="#fbbf24"/>
+          </svg>
+        </div>
+        <div>
+          <h1 style="font-size:1.2rem;">Neraca Keluarga &amp; Kedai</h1>
+          <div class="subtitle">Masuk untuk mengelola pembukuan</div>
+        </div>
+      </div>
+
       <form id="loginForm">
         <div class="field">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" required autocomplete="email" />
+          <label for="loginEmail">Email Akun</label>
+          <input type="email" id="loginEmail" required autocomplete="email" placeholder="nama@email.com" />
         </div>
         <div class="field">
           <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" required autocomplete="current-password" />
+          <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••" />
         </div>
-        <button type="submit" class="btn-primary">Masuk</button>
+        <button type="submit" class="btn-primary">Masuk ke Dashboard</button>
         <div id="loginMsg" class="msg"></div>
       </form>
     </div>
   </div>
 
+  <!-- DASHBOARD UTAMA -->
   <div id="appView" class="container hidden">
     <header>
-      <div>
-        <h1>Neraca Keuangan Keluarga &amp; Usaha Kedai</h1>
-        <div id="userEmailLabel" class="subtitle">Masuk sebagai: -</div>
+      <div class="brand-box">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="12" width="3.5" height="8" rx="1" fill="#ffffff"/>
+            <rect x="10.25" y="8" width="3.5" height="12" rx="1" fill="#ffffff"/>
+            <rect x="17.5" y="4" width="3.5" height="16" rx="1" fill="#ffffff"/>
+            <circle cx="19.25" cy="2.5" r="1.8" fill="#fbbf24"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Neraca Keluarga &amp; Kedai</h1>
+          <div id="userEmailLabel" class="subtitle">Masuk sebagai: -</div>
+        </div>
       </div>
+
       <div class="toolbar">
         <label for="tahunSelect" style="margin:0;">Tahun:</label>
         <select id="tahunSelect" style="width:auto;">
@@ -86,40 +344,65 @@
           <option value="2027">2027</option>
         </select>
         <button id="refreshBtn" type="button" class="btn-outline">Muat Ulang</button>
-        <!-- FITUR 3: Tombol Ekspor CSV -->
         <button id="exportCsvBtn" type="button" class="btn-outline">Ekspor CSV</button>
-        <button id="logoutBtn" type="button" class="btn-outline" style="color:var(--danger); border-color:#f0c4c0;">Keluar</button>
+        <button id="logoutBtn" type="button" class="btn-outline" style="color:var(--danger); border-color:#f5c2c0;">Keluar</button>
       </div>
     </header>
 
-    <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-label">Total Uang Masuk</div><div id="kpiMasuk" class="kpi-value text-masuk">Rp0</div></div>
-      <div class="kpi"><div class="kpi-label">Total Pengeluaran</div><div id="kpiKeluar" class="kpi-value text-keluar">Rp0</div></div>
-      <div class="kpi"><div class="kpi-label">Arus Kas Bersih</div><div id="kpiNet" class="kpi-value">Rp0</div></div>
-      <div class="kpi"><div class="kpi-label">Saldo Akhir Berjalan</div><div id="kpiSaldoAkhir" class="kpi-value">Rp0</div></div>
+    <!-- Tab Navigasi Dinamis -->
+    <div class="nav-pills" role="tablist">
+      <button type="button" class="pill-btn active" data-tab="all">Semua Tampilan</button>
+      <button type="button" class="pill-btn" data-tab="ringkasan">Ringkasan &amp; Grafik</button>
+      <button type="button" class="pill-btn" data-tab="rekap">Rekapan Bulanan</button>
+      <button type="button" class="pill-btn" data-tab="bukukas">Buku Kas</button>
     </div>
 
-    <!-- FITUR 1: Ringkasan Kas Usaha Kedai -->
-    <section class="card">
-      <h2>Ringkasan Kas Usaha Kedai (Tahun Terpilih)</h2>
+    <!-- KPI Utama -->
+    <div class="kpi-grid" data-section="ringkasan">
+      <div class="kpi">
+        <div class="kpi-label">Total Uang Masuk</div>
+        <div id="kpiMasuk" class="kpi-value text-masuk">Rp0</div>
+      </div>
+      <div class="kpi kpi-danger">
+        <div class="kpi-label">Total Pengeluaran</div>
+        <div id="kpiKeluar" class="kpi-value text-keluar">Rp0</div>
+      </div>
+      <div class="kpi kpi-accent">
+        <div class="kpi-label">Arus Kas Bersih</div>
+        <div id="kpiNet" class="kpi-value">Rp0</div>
+      </div>
+      <div class="kpi kpi-dark">
+        <div class="kpi-label">Saldo Akhir Berjalan</div>
+        <div id="kpiSaldoAkhir" class="kpi-value">Rp0</div>
+      </div>
+    </div>
+
+    <!-- Ringkasan Kas Usaha Kedai -->
+    <section class="card" data-section="ringkasan">
+      <div class="card-header">
+        <h2>Ringkasan Kas Usaha Kedai (Tahun Terpilih)</h2>
+      </div>
       <div class="kpi-grid" style="margin-bottom:0;">
         <div class="kpi">
           <div class="kpi-label">Pemasukan Kedai</div>
           <div id="kedaiMasuk" class="kpi-value text-masuk">Rp0</div>
         </div>
-        <div class="kpi">
+        <div class="kpi kpi-danger">
           <div class="kpi-label">Operasional Kedai</div>
           <div id="kedaiOps" class="kpi-value text-keluar">Rp0</div>
         </div>
-        <div class="kpi">
+        <div class="kpi kpi-accent">
           <div class="kpi-label">Selisih Operasional Kedai</div>
           <div id="kedaiSelisih" class="kpi-value">Rp0</div>
         </div>
       </div>
     </section>
 
+    <!-- Form Input Transaksi -->
     <section class="card">
-      <h2>Catat Transaksi Baru</h2>
+      <div class="card-header">
+        <h2>Catat Transaksi Baru</h2>
+      </div>
       <form id="txForm">
         <div class="form-grid">
           <div><label for="tanggal">Tanggal</label><input type="date" id="tanggal" name="tanggal" required /></div>
@@ -141,16 +424,21 @@
       </form>
     </section>
 
-    <!-- FITUR 4: Grafik Tren Pemasukan & Pengeluaran Bulanan -->
-    <section class="card">
-      <h2>Grafik Pemasukan vs Pengeluaran Bulanan</h2>
+    <!-- Grafik Bulanan -->
+    <section class="card" data-section="ringkasan">
+      <div class="card-header">
+        <h2>Grafik Pemasukan vs Pengeluaran Bulanan</h2>
+      </div>
       <div class="chart-box">
         <canvas id="monthlyChart"></canvas>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Rekapan Bulanan (Januari – Desember)</h2>
+    <!-- Rekapan Bulanan Januari - Desember -->
+    <section class="card" data-section="rekap">
+      <div class="card-header">
+        <h2>Rekapan Bulanan (Januari – Desember)</h2>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -166,10 +454,14 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2>Buku Kas &amp; Saldo Berjalan</h2>
-      <!-- FITUR 2: Filter Cepat Buku Kas -->
-      <div class="form-grid" style="margin-bottom:12px;">
+    <!-- Buku Kas & Saldo Berjalan -->
+    <section class="card" data-section="bukukas">
+      <div class="card-header">
+        <h2>Buku Kas &amp; Saldo Berjalan</h2>
+        <span id="txCountBadge" class="badge badge-masuk">0 Transaksi</span>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:14px;">
         <div>
           <label for="filterBulan">Filter Bulan</label>
           <select id="filterBulan">
@@ -246,8 +538,31 @@
     let cachedTxData = [];
     let monthlyChartInstance = null;
 
+    // Navigasi Tab Dinamis
+    document.querySelectorAll(".pill-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".pill-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const target = btn.dataset.tab;
+        document.querySelectorAll("[data-section]").forEach((sec) => {
+          if (target === "all" || sec.dataset.section === target) {
+            sec.classList.remove("hidden");
+          } else {
+            sec.classList.add("hidden");
+          }
+        });
+      });
+    });
+
     function formatRp(val) {
       return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(val || 0));
+    }
+
+    function getCategoryBadge(kat) {
+      if (kat === "Uang Masuk") return `<span class="badge badge-masuk">${kat}</span>`;
+      if (kat === "Pengeluaran") return `<span class="badge badge-keluar">${kat}</span>`;
+      if (kat === "Modal") return `<span class="badge badge-modal">${kat}</span>`;
+      return `<span class="badge badge-awal">${kat}</span>`;
     }
 
     function renderSubKategori() {
@@ -255,7 +570,6 @@
       subEl.innerHTML = options.map((opt) => `<option value="${opt}">${opt}</option>`).join("");
     }
 
-    // FITUR 1: Ringkasan Kas Usaha Kedai
     function updateRingkasanKedai(rekapData) {
       let omsetKedai = 0;
       let opsKedai = 0;
@@ -270,7 +584,6 @@
       document.getElementById("kedaiSelisih").textContent = formatRp(omsetKedai - opsKedai);
     }
 
-    // FITUR 4: Grafik Batang Bulanan
     function renderMonthlyChart(rekapData) {
       const canvas = document.getElementById("monthlyChart");
       if (!canvas || typeof Chart === "undefined") return;
@@ -291,14 +604,14 @@
             {
               label: "Total Uang Masuk",
               data: dataMasuk,
-              backgroundColor: "#1b6b48",
-              borderRadius: 4
+              backgroundColor: "#198754",
+              borderRadius: 6
             },
             {
               label: "Total Pengeluaran",
               data: dataKeluar,
-              backgroundColor: "#b42318",
-              borderRadius: 4
+              backgroundColor: "#dc2626",
+              borderRadius: 6
             }
           ]
         },
@@ -324,13 +637,13 @@
       });
     }
 
-    // FITUR 2: Filter Buku Kas
     function renderFilteredTx() {
       const tahun = Number(tahunEl.value);
       const bulan = document.getElementById("filterBulan").value;
       const kategori = document.getElementById("filterKategori").value;
       const keyword = document.getElementById("searchKet").value.trim().toLowerCase();
       const txBody = document.getElementById("txBody");
+      const badgeEl = document.getElementById("txCountBadge");
 
       const list = cachedTxData.filter((item) => {
         const matchTahun = Number(item.tahun) === tahun;
@@ -339,6 +652,8 @@
         const matchKet = !keyword || String(item.keterangan || "").toLowerCase().includes(keyword);
         return matchTahun && matchBulan && matchKat && matchKet;
       });
+
+      badgeEl.textContent = `${list.length} Transaksi`;
 
       if (list.length === 0) {
         txBody.innerHTML = `<tr><td colspan="8">Tidak ada transaksi yang cocok dengan filter.</td></tr>`;
@@ -349,11 +664,11 @@
         const mutasiClass = Number(t.mutasi_kas) >= 0 ? "text-masuk" : "text-keluar";
         return `<tr>
           <td>${t.tanggal}</td>
-          <td>${t.kategori_utama}</td>
+          <td>${getCategoryBadge(t.kategori_utama)}</td>
           <td>${t.sub_kategori}</td>
           <td>${t.keterangan || "-"}</td>
           <td class="num">${formatRp(t.jumlah)}</td>
-          <td class="num ${mutasiClass}">${formatRp(t.mutasi_kas)}</td>
+          <td class="num ${mutasiClass}"><strong>${formatRp(t.mutasi_kas)}</strong></td>
           <td class="num"><strong>${formatRp(t.saldo_berjalan)}</strong></td>
           <td><button class="btn-del" onclick="hapusTransaksi(${t.id})">Hapus</button></td>
         </tr>`;
@@ -364,7 +679,6 @@
     document.getElementById("filterKategori").addEventListener("change", renderFilteredTx);
     document.getElementById("searchKet").addEventListener("input", renderFilteredTx);
 
-    // FITUR 3: Ekspor CSV
     document.getElementById("exportCsvBtn").addEventListener("click", () => {
       if (!cachedTxData.length) {
         alert("Belum ada data transaksi untuk diekspor.");
@@ -448,7 +762,7 @@
         msgEl.style.color = "#b42318";
       } else {
         msgEl.textContent = "Transaksi tersimpan.";
-        msgEl.style.color = "#1b6b48";
+        msgEl.style.color = "#146c43";
         form.keterangan.value = "";
         form.jumlah.value = "";
         await loadAllData();
@@ -526,6 +840,7 @@
         cachedTxData = [];
         txBody.innerHTML = `<tr><td colspan="8">Belum ada transaksi tercatat.</td></tr>`;
         document.getElementById("kpiSaldoAkhir").textContent = formatRp(0);
+        document.getElementById("txCountBadge").textContent = "0 Transaksi";
       } else {
         cachedTxData = txData;
         document.getElementById("kpiSaldoAkhir").textContent = formatRp(txData[0].saldo_berjalan);
