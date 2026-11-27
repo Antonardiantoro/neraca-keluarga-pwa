@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neraca Keuangan Keluarga & Kedai</title>
+  <meta name="theme-color" content="#1b6b48" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Neraca Keluarga" />
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f4f6f5; --card: #ffffff; --text: #1b2420; --muted: #5c6b64;
+      --primary: #1b6b48; --primary-hover: #145237; --danger: #b42318; --border: #dce3df;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+    .hidden { display: none !important; }
+    .container { max-width: 1120px; margin: 0 auto; }
+    .login-wrapper { min-height: 85vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { width: 100%; max-width: 390px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+    h1 { font-size: 1.3rem; margin: 0; }
+    .subtitle { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--card); padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .kpi-label { font-size: 0.8rem; color: var(--muted); }
+    .kpi-value { font-size: 1.18rem; font-weight: 700; margin-top: 6px; }
+    .text-masuk { color: var(--primary); }
+    .text-keluar { color: var(--danger); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px; }
+    .card h2 { font-size: 1.05rem; margin: 0 0 14px 0; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; }
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+    input, select, button { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.92rem; background: #fff; color: var(--text); }
+    button.btn-primary { background: var(--primary); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+    button.btn-primary:hover { background: var(--primary-hover); }
+    button.btn-outline { width: auto; cursor: pointer; padding: 7px 12px; font-size: 0.84rem; }
+    button.btn-del { background: transparent; color: var(--danger); border: 1px solid #f0c4c0; padding: 4px 8px; font-size: 0.78rem; cursor: pointer; width: auto; }
+    .msg { margin-top: 10px; font-size: 0.86rem; min-height: 20px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    th { background: #eef3f0; font-weight: 600; }
+    td.num, th.num { text-align: right; }
+    tr.total-row td { font-weight: 700; background: #f7faf8; border-top: 2px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div id="loginView" class="login-wrapper">
+    <div class="login-card">
+      <h1 style="margin-bottom:4px;">Masuk ke Neraca</h1>
+      <div class="subtitle" style="margin-bottom:18px;">Akses privat data keuangan keluarga &amp; kedai</div>
+      <form id="loginForm">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn-primary">Masuk</button>
+        <div id="loginMsg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="appView" class="container hidden">
+    <header>
+      <div>
+        <h1>Neraca Keuangan Keluarga &amp; Usaha Kedai</h1>
+        <div id="userEmailLabel" class="subtitle">Masuk sebagai: -</div>
+      </div>
+      <div class="toolbar">
+        <label for="tahunSelect" style="margin:0;">Tahun:</label>
+        <select id="tahunSelect" style="width:auto;">
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
+          <option value="2027">2027</option>
+        </select>
+        <button id="refreshBtn" type="button" class="btn-outline">Muat Ulang</button>
+        <button id="logoutBtn" type="button" class="btn-outline" style="color:var(--danger); border-color:#f0c4c0;">Keluar</button>
+      </div>
+    </header>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Total Uang Masuk</div><div id="kpiMasuk" class="kpi-value text-masuk">Rp0</div></div>
+      <div class="kpi"><div class="kpi-label">Total Pengeluaran</div><div id="kpiKeluar" class="kpi-value text-keluar">Rp0</div></div>
+      <div class="kpi"><div class="kpi-label">Arus Kas Bersih</div><div id="kpiNet" class="kpi-value">Rp0</div></div>
+      <div class="kpi"><div class="kpi-label">Saldo Akhir Berjalan</div><div id="kpiSaldoAkhir" class="kpi-value">Rp0</div></div>
+    </div>
+
+    <section class="card">
+      <h2>Catat Transaksi Baru</h2>
+      <form id="txForm">
+        <div class="form-grid">
+          <div><label for="tanggal">Tanggal</label><input type="date" id="tanggal" name="tanggal" required /></div>
+          <div>
+            <label for="kategoriUtama">Kategori Utama</label>
+            <select id="kategoriUtama" name="kategoriUtama" required>
+              <option value="Uang Masuk">Uang Masuk</option>
+              <option value="Pengeluaran">Pengeluaran</option>
+              <option value="Modal">Modal</option>
+              <option value="Saldo Awal">Saldo Awal</option>
+            </select>
+          </div>
+          <div><label for="subKategori">Sub-Kategori</label><select id="subKategori" name="subKategori" required></select></div>
+          <div><label for="jumlah">Jumlah (Rp)</label><input type="number" id="jumlah" name="jumlah" min="0" step="1" placeholder="0" required /></div>
+          <div><label for="keterangan">Keterangan</label><input type="text" id="keterangan" name="keterangan" placeholder="Contoh: Gaji / Omset kedai / Belanja harian" /></div>
+          <div style="display:flex; align-items:flex-end;"><button type="submit" class="btn-primary">Simpan Transaksi</button></div>
+        </div>
+        <div id="msg" class="msg"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Rekapan Bulanan (Januari – Desember)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bulan</th><th class="num">Gaji</th><th class="num">Pemasukan Kedai</th><th class="num">Masuk DLL</th>
+              <th class="num">Total Masuk</th><th class="num">Belanja Harian</th><th class="num">Ops Kedai &amp; Tagihan</th>
+              <th class="num">Keluar DLL</th><th class="num">Total Keluar</th><th class="num">Modal Usaha (Net)</th>
+              <th class="num">Saldo Akhir Bulan</th>
+            </tr>
+          </thead>
+          <tbody id="rekapBody"><tr><td colspan="11">Memuat rekapan bulanan...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Buku Kas &amp; Saldo Berjalan</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th><th>Kategori Utama</th><th>Sub-Kategori</th><th>Keterangan</th>
+              <th class="num">Nominal (Rp)</th><th class="num">Mutasi Kas</th><th class="num">Saldo Berjalan</th><th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="txBody"><tr><td colspan="8">Memuat data transaksi...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://agubrrmbaadntojyttab.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_OiCV7oenCoddGglcuSsLAw_yxm9Vtg5";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const SUB_BY_MAIN = {
+      "Uang Masuk": ["Gaji", "Pemasukan Kedai", "Uang Masuk Lainnya (DLL)"],
+      "Pengeluaran": ["Belanja Harian", "Operasional Kedai", "Tagihan & Utilitas", "Pengeluaran Lainnya (DLL)"],
+      "Modal": ["Alokasi Modal Usaha", "Pengembalian Modal Usaha"],
+      "Saldo Awal": ["Saldo Awal"]
+    };
+
+    const loginView = document.getElementById("loginView");
+    const appView = document.getElementById("appView");
+    const loginForm = document.getElementById("loginForm");
+    const loginMsg = document.getElementById("loginMsg");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userEmailLabel = document.getElementById("userEmailLabel");
+    const form = document.getElementById("txForm");
+    const kategoriEl = document.getElementById("kategoriUtama");
+    const subEl = document.getElementById("subKategori");
+    const tahunEl = document.getElementById("tahunSelect");
+    const msgEl = document.getElementById("msg");
+    let currentUser = null;
+
+    function formatRp(val) {
+      return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(val || 0));
+    }
+
+    function renderSubKategori() {
+      const options = SUB_BY_MAIN[kategoriEl.value] || ["Lainnya"];
+      subEl.innerHTML = options.map((opt) => `<option value="${opt}">${opt}</option>`).join("");
+    }
+
+    kategoriEl.addEventListener("change", renderSubKategori);
+    renderSubKategori();
+    form.tanggal.valueAsDate = new Date();
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginMsg.textContent = "Memeriksa akun...";
+      const { error } = await sb.auth.signInWithPassword({
+        email: document.getElementById("loginEmail").value.trim(),
+        password: document.getElementById("loginPassword").value
+      });
+      if (error) {
+        loginMsg.textContent = "Login gagal: " + error.message;
+        loginMsg.style.color = "#b42318";
+      } else {
+        loginMsg.textContent = "";
+        document.getElementById("loginPassword").value = "";
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => { await sb.auth.signOut(); });
+
+    sb.auth.onAuthStateChange(async (_event, session) => {
+      currentUser = session?.user || null;
+      if (currentUser) {
+        loginView.classList.add("hidden");
+        appView.classList.remove("hidden");
+        userEmailLabel.textContent = "Masuk sebagai: " + currentUser.email;
+        await loadAllData();
+      } else {
+        appView.classList.add("hidden");
+        loginView.classList.remove("hidden");
+        userEmailLabel.textContent = "Masuk sebagai: -";
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      msgEl.textContent = "Menyimpan transaksi...";
+      const { error } = await sb.from("transaksi").insert([{
+        user_id: currentUser.id,
+        tanggal: form.tanggal.value,
+        kategori_utama: form.kategoriUtama.value,
+        sub_kategori: form.subKategori.value,
+        keterangan: form.keterangan.value.trim(),
+        jumlah: Number(form.jumlah.value)
+      }]);
+      if (error) {
+        msgEl.textContent = "Gagal menyimpan: " + error.message;
+        msgEl.style.color = "#b42318";
+      } else {
+        msgEl.textContent = "Transaksi tersimpan.";
+        msgEl.style.color = "#1b6b48";
+        form.keterangan.value = "";
+        form.jumlah.value = "";
+        await loadAllData();
+      }
+    });
+
+    window.hapusTransaksi = async function (id) {
+      if (!confirm("Hapus transaksi ini?")) return;
+      const { error } = await sb.from("transaksi").delete().eq("id", id);
+      if (error) alert("Gagal menghapus: " + error.message);
+      else await loadAllData();
+    };
+
+    async function loadAllData() {
+      if (!currentUser) return;
+      const tahun = Number(tahunEl.value);
+
+      const { data: rekapData, error: rekapErr } = await sb
+        .from("v_rekapan_bulanan").select("*").eq("tahun", tahun).order("bulan_ke", { ascending: true });
+
+      const rekapBody = document.getElementById("rekapBody");
+      if (rekapErr) {
+        rekapBody.innerHTML = `<tr><td colspan="11">Error rekap: ${rekapErr.message}</td></tr>`;
+      } else if (!rekapData || rekapData.length === 0) {
+        rekapBody.innerHTML = `<tr><td colspan="11">Belum ada data untuk tahun ${tahun}.</td></tr>`;
+      } else {
+        let sumGaji = 0, sumKedai = 0, sumMasukDll = 0, sumMasuk = 0;
+        let sumBelanja = 0, sumOpsTagihan = 0, sumKeluarDll = 0, sumKeluar = 0;
+        let sumModalNet = 0, saldoAkhirTahun = 0;
+
+        const rowsHtml = rekapData.map((r) => {
+          const opsTagihan = Number(r.operasional_kedai || 0) + Number(r.tagihan_utilitas || 0);
+          const modalNet = Number(r.pengembalian_modal_usaha || 0) - Number(r.alokasi_modal_usaha || 0);
+          sumGaji += Number(r.gaji || 0); sumKedai += Number(r.pemasukan_kedai || 0);
+          sumMasukDll += Number(r.uang_masuk_dll || 0); sumMasuk += Number(r.total_uang_masuk || 0);
+          sumBelanja += Number(r.belanja_harian || 0); sumOpsTagihan += opsTagihan;
+          sumKeluarDll += Number(r.pengeluaran_dll || 0); sumKeluar += Number(r.total_pengeluaran || 0);
+          sumModalNet += modalNet; saldoAkhirTahun = Number(r.saldo_akhir_bulan || 0);
+
+          return `<tr>
+            <td><strong>${r.nama_bulan}</strong></td>
+            <td class="num">${formatRp(r.gaji)}</td><td class="num">${formatRp(r.pemasukan_kedai)}</td>
+            <td class="num">${formatRp(r.uang_masuk_dll)}</td><td class="num text-masuk"><strong>${formatRp(r.total_uang_masuk)}</strong></td>
+            <td class="num">${formatRp(r.belanja_harian)}</td><td class="num">${formatRp(opsTagihan)}</td>
+            <td class="num">${formatRp(r.pengeluaran_dll)}</td><td class="num text-keluar"><strong>${formatRp(r.total_pengeluaran)}</strong></td>
+            <td class="num">${formatRp(modalNet)}</td><td class="num"><strong>${formatRp(r.saldo_akhir_bulan)}</strong></td>
+          </tr>`;
+        }).join("");
+
+        rekapBody.innerHTML = rowsHtml + `<tr class="total-row">
+          <td>TOTAL ${tahun}</td><td class="num">${formatRp(sumGaji)}</td><td class="num">${formatRp(sumKedai)}</td>
+          <td class="num">${formatRp(sumMasukDll)}</td><td class="num text-masuk">${formatRp(sumMasuk)}</td>
+          <td class="num">${formatRp(sumBelanja)}</td><td class="num">${formatRp(sumOpsTagihan)}</td>
+          <td class="num">${formatRp(sumKeluarDll)}</td><td class="num text-keluar">${formatRp(sumKeluar)}</td>
+          <td class="num">${formatRp(sumModalNet)}</td><td class="num">${formatRp(saldoAkhirTahun)}</td>
+        </tr>`;
+
+        document.getElementById("kpiMasuk").textContent = formatRp(sumMasuk);
+        document.getElementById("kpiKeluar").textContent = formatRp(sumKeluar);
+        document.getElementById("kpiNet").textContent = formatRp(sumMasuk - sumKeluar);
+      }
+
+      const { data: txData, error: txErr } = await sb
+        .from("v_transaksi_saldo_berjalan").select("*").order("tanggal", { ascending: false }).order("id", { ascending: false });
+
+      const txBody = document.getElementById("txBody");
+      if (txErr) {
+        txBody.innerHTML = `<tr><td colspan="8">Error transaksi: ${txErr.message}</td></tr>`;
+      } else if (!txData || txData.length === 0) {
+        txBody.innerHTML = `<tr><td colspan="8">Belum ada transaksi tercatat.</td></tr>`;
+        document.getElementById("kpiSaldoAkhir").textContent = formatRp(0);
+      } else {
+        document.getElementById("kpiSaldoAkhir").textContent = formatRp(txData[0].saldo_berjalan);
+        const filteredTx = txData.filter((item) => Number(item.tahun) === tahun);
+        const rowsToShow = filteredTx.length > 0 ? filteredTx : txData;
+        txBody.innerHTML = rowsToShow.map((t) => {
+          const mutasiClass = Number(t.mutasi_kas) >= 0 ? "text-masuk" : "text-keluar";
+          return `<tr>
+            <td>${t.tanggal}</td><td>${t.kategori_utama}</td><td>${t.sub_kategori}</td><td>${t.keterangan || "-"}</td>
+            <td class="num">${formatRp(t.jumlah)}</td><td class="num ${mutasiClass}">${formatRp(t.mutasi_kas)}</td>
+            <td class="num"><strong>${formatRp(t.saldo_berjalan)}</strong></td>
+            <td><button class="btn-del" onclick="hapusTransaksi(${t.id})">Hapus</button></td>
+          </tr>`;
+        }).join("");
+      }
+    }
+
+    tahunEl.addEventListener("change", loadAllData);
+    document.getElementById("refreshBtn").addEventListener("click", loadAllData);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((err) => console.error("SW gagal:", err));
+      });
+    }
+  </script>
+</body>
+</html>
