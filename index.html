@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Neraca Keluarga" />
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f5; --card: #ffffff; --text: #1b2420; --muted: #5c6b64;
@@ -48,6 +49,7 @@
     th { background: #eef3f0; font-weight: 600; }
     td.num, th.num { text-align: right; }
     tr.total-row td { font-weight: 700; background: #f7faf8; border-top: 2px solid var(--border); }
+    .chart-box { position: relative; width: 100%; height: 280px; }
   </style>
 </head>
 <body>
@@ -84,6 +86,8 @@
           <option value="2027">2027</option>
         </select>
         <button id="refreshBtn" type="button" class="btn-outline">Muat Ulang</button>
+        <!-- FITUR 3: Tombol Ekspor CSV -->
+        <button id="exportCsvBtn" type="button" class="btn-outline">Ekspor CSV</button>
         <button id="logoutBtn" type="button" class="btn-outline" style="color:var(--danger); border-color:#f0c4c0;">Keluar</button>
       </div>
     </header>
@@ -94,6 +98,25 @@
       <div class="kpi"><div class="kpi-label">Arus Kas Bersih</div><div id="kpiNet" class="kpi-value">Rp0</div></div>
       <div class="kpi"><div class="kpi-label">Saldo Akhir Berjalan</div><div id="kpiSaldoAkhir" class="kpi-value">Rp0</div></div>
     </div>
+
+    <!-- FITUR 1: Ringkasan Kas Usaha Kedai -->
+    <section class="card">
+      <h2>Ringkasan Kas Usaha Kedai (Tahun Terpilih)</h2>
+      <div class="kpi-grid" style="margin-bottom:0;">
+        <div class="kpi">
+          <div class="kpi-label">Pemasukan Kedai</div>
+          <div id="kedaiMasuk" class="kpi-value text-masuk">Rp0</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Operasional Kedai</div>
+          <div id="kedaiOps" class="kpi-value text-keluar">Rp0</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Selisih Operasional Kedai</div>
+          <div id="kedaiSelisih" class="kpi-value">Rp0</div>
+        </div>
+      </div>
+    </section>
 
     <section class="card">
       <h2>Catat Transaksi Baru</h2>
@@ -118,6 +141,14 @@
       </form>
     </section>
 
+    <!-- FITUR 4: Grafik Tren Pemasukan & Pengeluaran Bulanan -->
+    <section class="card">
+      <h2>Grafik Pemasukan vs Pengeluaran Bulanan</h2>
+      <div class="chart-box">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </section>
+
     <section class="card">
       <h2>Rekapan Bulanan (Januari – Desember)</h2>
       <div class="table-wrap">
@@ -137,6 +168,42 @@
 
     <section class="card">
       <h2>Buku Kas &amp; Saldo Berjalan</h2>
+      <!-- FITUR 2: Filter Cepat Buku Kas -->
+      <div class="form-grid" style="margin-bottom:12px;">
+        <div>
+          <label for="filterBulan">Filter Bulan</label>
+          <select id="filterBulan">
+            <option value="all" selected>Semua Bulan</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterKategori">Filter Kategori</label>
+          <select id="filterKategori">
+            <option value="all" selected>Semua Kategori</option>
+            <option value="Uang Masuk">Uang Masuk</option>
+            <option value="Pengeluaran">Pengeluaran</option>
+            <option value="Modal">Modal</option>
+            <option value="Saldo Awal">Saldo Awal</option>
+          </select>
+        </div>
+        <div>
+          <label for="searchKet">Cari Keterangan</label>
+          <input type="text" id="searchKet" placeholder="Ketik kata kunci..." />
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -174,7 +241,10 @@
     const subEl = document.getElementById("subKategori");
     const tahunEl = document.getElementById("tahunSelect");
     const msgEl = document.getElementById("msg");
+
     let currentUser = null;
+    let cachedTxData = [];
+    let monthlyChartInstance = null;
 
     function formatRp(val) {
       return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(val || 0));
@@ -184,6 +254,146 @@
       const options = SUB_BY_MAIN[kategoriEl.value] || ["Lainnya"];
       subEl.innerHTML = options.map((opt) => `<option value="${opt}">${opt}</option>`).join("");
     }
+
+    // FITUR 1: Ringkasan Kas Usaha Kedai
+    function updateRingkasanKedai(rekapData) {
+      let omsetKedai = 0;
+      let opsKedai = 0;
+
+      (rekapData || []).forEach((r) => {
+        omsetKedai += Number(r.pemasukan_kedai || 0);
+        opsKedai += Number(r.operasional_kedai || 0);
+      });
+
+      document.getElementById("kedaiMasuk").textContent = formatRp(omsetKedai);
+      document.getElementById("kedaiOps").textContent = formatRp(opsKedai);
+      document.getElementById("kedaiSelisih").textContent = formatRp(omsetKedai - opsKedai);
+    }
+
+    // FITUR 4: Grafik Batang Bulanan
+    function renderMonthlyChart(rekapData) {
+      const canvas = document.getElementById("monthlyChart");
+      if (!canvas || typeof Chart === "undefined") return;
+
+      const labels = (rekapData || []).map((r) => r.nama_bulan);
+      const dataMasuk = (rekapData || []).map((r) => Number(r.total_uang_masuk || 0));
+      const dataKeluar = (rekapData || []).map((r) => Number(r.total_pengeluaran || 0));
+
+      if (monthlyChartInstance) {
+        monthlyChartInstance.destroy();
+      }
+
+      monthlyChartInstance = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Total Uang Masuk",
+              data: dataMasuk,
+              backgroundColor: "#1b6b48",
+              borderRadius: 4
+            },
+            {
+              label: "Total Pengeluaran",
+              data: dataKeluar,
+              backgroundColor: "#b42318",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatRp(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (val) => "Rp" + Number(val).toLocaleString("id-ID")
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // FITUR 2: Filter Buku Kas
+    function renderFilteredTx() {
+      const tahun = Number(tahunEl.value);
+      const bulan = document.getElementById("filterBulan").value;
+      const kategori = document.getElementById("filterKategori").value;
+      const keyword = document.getElementById("searchKet").value.trim().toLowerCase();
+      const txBody = document.getElementById("txBody");
+
+      const list = cachedTxData.filter((item) => {
+        const matchTahun = Number(item.tahun) === tahun;
+        const matchBulan = bulan === "all" || Number(item.bulan_ke) === Number(bulan);
+        const matchKat = kategori === "all" || item.kategori_utama === kategori;
+        const matchKet = !keyword || String(item.keterangan || "").toLowerCase().includes(keyword);
+        return matchTahun && matchBulan && matchKat && matchKet;
+      });
+
+      if (list.length === 0) {
+        txBody.innerHTML = `<tr><td colspan="8">Tidak ada transaksi yang cocok dengan filter.</td></tr>`;
+        return;
+      }
+
+      txBody.innerHTML = list.map((t) => {
+        const mutasiClass = Number(t.mutasi_kas) >= 0 ? "text-masuk" : "text-keluar";
+        return `<tr>
+          <td>${t.tanggal}</td>
+          <td>${t.kategori_utama}</td>
+          <td>${t.sub_kategori}</td>
+          <td>${t.keterangan || "-"}</td>
+          <td class="num">${formatRp(t.jumlah)}</td>
+          <td class="num ${mutasiClass}">${formatRp(t.mutasi_kas)}</td>
+          <td class="num"><strong>${formatRp(t.saldo_berjalan)}</strong></td>
+          <td><button class="btn-del" onclick="hapusTransaksi(${t.id})">Hapus</button></td>
+        </tr>`;
+      }).join("");
+    }
+
+    document.getElementById("filterBulan").addEventListener("change", renderFilteredTx);
+    document.getElementById("filterKategori").addEventListener("change", renderFilteredTx);
+    document.getElementById("searchKet").addEventListener("input", renderFilteredTx);
+
+    // FITUR 3: Ekspor CSV
+    document.getElementById("exportCsvBtn").addEventListener("click", () => {
+      if (!cachedTxData.length) {
+        alert("Belum ada data transaksi untuk diekspor.");
+        return;
+      }
+      const headers = ["Tanggal", "Kategori Utama", "Sub-Kategori", "Keterangan", "Jumlah", "Mutasi Kas", "Saldo Berjalan"];
+      const lines = [headers.join(",")];
+
+      cachedTxData.forEach((t) => {
+        const row = [
+          t.tanggal,
+          `"${String(t.kategori_utama || "").replace(/"/g, '""')}"`,
+          `"${String(t.sub_kategori || "").replace(/"/g, '""')}"`,
+          `"${String(t.keterangan || "").replace(/"/g, '""')}"`,
+          Number(t.jumlah || 0),
+          Number(t.mutasi_kas || 0),
+          Number(t.saldo_berjalan || 0)
+        ];
+        lines.push(row.join(","));
+      });
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `neraca-keuangan-${tahunEl.value}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
 
     kategoriEl.addEventListener("change", renderSubKategori);
     renderSubKategori();
@@ -264,6 +474,8 @@
         rekapBody.innerHTML = `<tr><td colspan="11">Error rekap: ${rekapErr.message}</td></tr>`;
       } else if (!rekapData || rekapData.length === 0) {
         rekapBody.innerHTML = `<tr><td colspan="11">Belum ada data untuk tahun ${tahun}.</td></tr>`;
+        updateRingkasanKedai([]);
+        renderMonthlyChart([]);
       } else {
         let sumGaji = 0, sumKedai = 0, sumMasukDll = 0, sumMasuk = 0;
         let sumBelanja = 0, sumOpsTagihan = 0, sumKeluarDll = 0, sumKeluar = 0;
@@ -299,6 +511,9 @@
         document.getElementById("kpiMasuk").textContent = formatRp(sumMasuk);
         document.getElementById("kpiKeluar").textContent = formatRp(sumKeluar);
         document.getElementById("kpiNet").textContent = formatRp(sumMasuk - sumKeluar);
+
+        updateRingkasanKedai(rekapData);
+        renderMonthlyChart(rekapData);
       }
 
       const { data: txData, error: txErr } = await sb
@@ -308,21 +523,13 @@
       if (txErr) {
         txBody.innerHTML = `<tr><td colspan="8">Error transaksi: ${txErr.message}</td></tr>`;
       } else if (!txData || txData.length === 0) {
+        cachedTxData = [];
         txBody.innerHTML = `<tr><td colspan="8">Belum ada transaksi tercatat.</td></tr>`;
         document.getElementById("kpiSaldoAkhir").textContent = formatRp(0);
       } else {
+        cachedTxData = txData;
         document.getElementById("kpiSaldoAkhir").textContent = formatRp(txData[0].saldo_berjalan);
-        const filteredTx = txData.filter((item) => Number(item.tahun) === tahun);
-        const rowsToShow = filteredTx.length > 0 ? filteredTx : txData;
-        txBody.innerHTML = rowsToShow.map((t) => {
-          const mutasiClass = Number(t.mutasi_kas) >= 0 ? "text-masuk" : "text-keluar";
-          return `<tr>
-            <td>${t.tanggal}</td><td>${t.kategori_utama}</td><td>${t.sub_kategori}</td><td>${t.keterangan || "-"}</td>
-            <td class="num">${formatRp(t.jumlah)}</td><td class="num ${mutasiClass}">${formatRp(t.mutasi_kas)}</td>
-            <td class="num"><strong>${formatRp(t.saldo_berjalan)}</strong></td>
-            <td><button class="btn-del" onclick="hapusTransaksi(${t.id})">Hapus</button></td>
-          </tr>`;
-        }).join("");
+        renderFilteredTx();
       }
     }
 
